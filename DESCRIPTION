@@ -10,3 +10,4 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Depends: ggplot2, survival, survminer, glmnet, R(>= 2.14.1)
+RoxygenNote: 6.1.1
