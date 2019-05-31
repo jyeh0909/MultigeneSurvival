@@ -42,37 +42,44 @@ MultigeneSurvival <- function(dataset,time,event,title,alpha){
   gene <- dataset[,-c(a,b)]
   surv <- dataset[,c(a,b)]
 
+  ### Standardized with mean = 0 and SD = 1
   gene1 <- scale(gene,scale = T,center = T)
   y <- Surv(surv$time, surv$event)
 
   alpha <- alpha
 
+  ### Using 10 times 10 folds Cross validation procedure to choose the tuning parameter when cross validation error is minimized.
   lambda <- NULL
 
-  for(j in 1:1){
+  for(j in 1:10){
     cvfit <- cv.glmnet(gene1, y, family="cox", alpha = alpha, nlambda = 1000)
     lambda[j] <- cvfit$lambda.min
   }
 
+  ### Average the 10 lambdas to be the new tuning parameter for LASSO in cox regression
   lambda1 <- mean(lambda)
 
+  ### LASSO in cox regression
   cvfit1 <- glmnet(gene1, y, family="cox", alpha = alpha, lambda = lambda1)
-  coef.min = coef(cvfit1, s = lambda1)
-  active.min = which(data.frame(as.matrix(coef.min)) != 0)
-  index.min = coef.min[active.min]
-  coef <- data.frame(cbind(active.min,index.min))
-  sig <- coef$active.min[(order(abs(coef$index.min),decreasing = T))]
-  sig_gene <- colnames(gene1)[sig]
 
-  dataused1 <- cbind(gene1[,active.min],surv)
+  ### A list of all coefficients corresponding to each gene
+  coef.min = data.frame(as.matrix(coef(cvfit1, s = lambda1)))
 
-  # do kmeans based on these selected gene expression
+  ### Select the gene when its coefficient after LASSO is not zero
+  gene.min = rownames(coef.min)[which(coef.min != 0)]
+
+  ### combine the gene selected and survival information to be a new dataset
+  dataused1 <- cbind(gene1[,which(colnames(gene1) %in% gene.min)],surv)
+
+  ### do kmeans based on these selected gene expression
   kmeans <- kmeans(dataused1[,-c((ncol(dataused1)-1),ncol(dataused1))], 2 , iter.max = 10000000)
   dataused1$cluster <- kmeans$cluster
 
+  ### Do survival curves based on kmeans cluster
   fit <- survfit(Surv(time,event) ~ cluster, data=dataused1)
   title <- paste0("Dataset = ",title," / ","Alpha = ", alpha)
 
+  ### KM plot
   g <- ggsurvplot(
         fit,
         data=dataused1,
@@ -84,5 +91,5 @@ MultigeneSurvival <- function(dataset,time,event,title,alpha){
         risk.table.y.text=FALSE,
         title = title)
 
- return(list(g,sig_gene))
+ return(list(g,gene.min))
 }
