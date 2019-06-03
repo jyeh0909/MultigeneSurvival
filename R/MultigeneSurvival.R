@@ -63,13 +63,19 @@ MultigeneSurvival <- function(dataset,time,event,title,alpha){
   cvfit1 <- glmnet(gene1, y, family="cox", alpha = alpha, lambda = lambda1)
 
   ### A list of all coefficients corresponding to each gene
-  coef.min = data.frame(as.matrix(coef(cvfit1, s = lambda1)))
+  coef.min <- data.frame(as.matrix(coef(cvfit1, s = lambda1)))
+  colnames(coef.min) <- "coefficient"
+  coef.min$gene <- rownames(coef.min)
+  rownames(coef.min) <- c()
 
   ### Select the gene when its coefficient after LASSO is not zero
-  gene.min = rownames(coef.min)[which(coef.min != 0)]
+  gene.min <- coef.min[which(coef.min$coefficient != 0),]
+
+  ### order the matrix by absolute value of coefficient
+  gene.min1 <- gene.min[order(-abs(gene.min$coefficient)),]
 
   ### combine the gene selected and survival information to be a new dataset
-  dataused1 <- cbind(gene1[,which(colnames(gene1) %in% gene.min)],surv)
+  dataused1 <- cbind(gene1[,which(colnames(gene1) %in% gene.min1$gene)],surv)
 
   ### do kmeans based on these selected gene expression
   kmeans <- kmeans(dataused1[,-c((ncol(dataused1)-1),ncol(dataused1))], 2 , iter.max = 10000000)
@@ -91,5 +97,5 @@ MultigeneSurvival <- function(dataset,time,event,title,alpha){
         risk.table.y.text=FALSE,
         title = title)
 
- return(list(g,gene.min))
+ return(list(g,gene.min1))
 }
